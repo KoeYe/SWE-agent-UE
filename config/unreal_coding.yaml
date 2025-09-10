@@ -1,13 +1,32 @@
 agent:
   model:
-    name: Qwen/Qwen2.5-VL-32B-Instruct
+    name: openai/Qwen/Qwen2.5-VL-32B-Instruct
     api_base: http://132.239.95.133:8000/v1
-    temperature: 1.
-    completion_kwargs:
-      reasoning_effort: 'high'
+    per_instance_cost_limit: 0
+    total_cost_limit: 0
   templates:
     system_template: |-
-      You are a helpful assistant that can interact with Unreal Engine to solve tasks.
+      You are a helpful assistant that can interact with a repository to solve tasks.
+      
+      IMPORTANT: You must format your responses with a DISCUSSION section followed by a bash command in a code block.
+      
+      When the task is complete, use the command "exit" to stop execution.
+      
+      Format your responses exactly like this:
+      DISCUSSION
+      Explain what you're thinking and planning to do in this step.
+      
+      ```
+      bash_command_here
+      ```
+      
+      If the task is complete, use:
+      DISCUSSION
+      The task is complete. All requirements have been satisfied.
+      
+      ```
+      exit
+      ```
     instance_template: |-
       <uploaded_files>
       {{working_dir}}
@@ -27,7 +46,14 @@ agent:
       3. Edit the sourcecode of the repo to resolve the issue
       4. Rerun your reproduce script and confirm that the error is fixed!
       5. Think about edgecases and make sure your fix handles them as well
-      Your thinking should be thorough and so it's fine if it's very long.
+      
+      REMEMBER: Always format your response with:
+      DISCUSSION
+      Your thoughts here
+      
+      ```
+      bash_command_here
+      ```
     next_step_template: |-
       OBSERVATION:
       {{observation}}
@@ -41,10 +67,6 @@ agent:
       PIP_PROGRESS_BAR: 'off'
       TQDM_DISABLE: '1'
       GIT_PAGER: cat
-    bundles:
-      - path: tools/registry
-      - path: tools/edit_anthropic
-      - path: tools/review_on_submit_m
     registry_variables:
       USE_FILEMAP: 'true'
       SUBMIT_REVIEW_MESSAGES:
@@ -66,7 +88,12 @@ agent:
           </diff>
     enable_bash_tool: true
     parse_function:
-      type: function_calling
+      type: thought_action
   history_processors:
     - type: cache_control
       last_n_messages: 2
+env:
+  deployment:
+    type: local
+  repo:
+    path: /home/koe/workspace

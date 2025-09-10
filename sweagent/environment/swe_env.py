@@ -152,8 +152,19 @@ class SWEEnv:
             self.logger.debug("Resetting repository %s to commit %s", self.repo.repo_name, self.repo.base_commit)
             # todo: Currently has swe-ft specific change: The original repo.copy isn't called, because the repo is already
             # present. However, reset --hard <BRANCH> also doesn't work. So modified it here to do a checkout instead.
+            
+            # Determine the correct repository path based on deployment type
+            deployment_type = getattr(self.deployment._config, 'type', None) if hasattr(self.deployment, '_config') else None
+            
+            if deployment_type == 'local' and hasattr(self.repo, 'path'):
+                # For local deployment with LocalRepoConfig, use the original path
+                repo_path = str(self.repo.path)
+            else:
+                # For other deployments, use the traditional path
+                repo_path = f"/{self.repo.repo_name}"
+                
             startup_commands = [
-                f"cd /{self.repo.repo_name}",
+                f"cd {repo_path}",
                 "export ROOT=$(pwd -P)",
                 *self.repo.get_reset_commands(),
             ]

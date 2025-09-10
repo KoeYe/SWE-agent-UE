@@ -259,15 +259,37 @@ class ToolHandler:
             var: os.getenv(var) for var in self.config.propagate_env_variables
         }
         env.set_env_variables(env_variables)
-        env.write_file("/root/.swe-agent-env", json.dumps(self.config.registry_variables))
-        env.write_file("/root/state.json", "{}")
+        
+        # Determine the target directory based on deployment type
+        deployment_type = getattr(env.deployment._config, 'type', None) if hasattr(env.deployment, '_config') else None
+        if deployment_type == 'local':
+            home_dir = os.path.expanduser('~')
+        else:
+            home_dir = "/root"
+            
+        env.write_file(f"{home_dir}/.swe-agent-env", json.dumps(self.config.registry_variables))
+        env.write_file(f"{home_dir}/state.json", "{}")
         env.communicate(" && ".join(self._reset_commands), check="raise", timeout=self.config.install_timeout)
 
     async def _upload_bundles(self, env: SWEEnv) -> None:
+        # Determine the target directory based on deployment type
+        deployment_type = getattr(env.deployment._config, 'type', None) if hasattr(env.deployment, '_config') else None
+        if deployment_type == 'local':
+            tools_dir = f"{os.path.expanduser('~')}/tools"
+        else:
+            tools_dir = "/root/tools"
+        
+        # For local deployment, we might want to clean and recreate the tools directory
+        if deployment_type == 'local':
+            import shutil
+            tools_path = Path(tools_dir)
+            if tools_path.exists():
+                shutil.rmtree(tools_path, ignore_errors=True)
+            
         await asyncio.gather(
             *(
                 env.deployment.runtime.upload(
-                    UploadRequest(source_path=bundle.path.as_posix(), target_path=f"/root/tools/{bundle.path.name}")
+                    UploadRequest(source_path=bundle.path.as_posix(), target_path=f"{tools_dir}/{bundle.path.name}")
                 )
                 for bundle in self.config.bundles
             )
@@ -294,14 +316,22 @@ class ToolHandler:
         env.set_env_variables(self.config.env_variables)
         cwd = env.communicate("pwd", check="raise").strip()
         asyncio.run(self._upload_bundles(env))
+        
+        # Determine the target directory based on deployment type
+        deployment_type = getattr(env.deployment._config, 'type', None) if hasattr(env.deployment, '_config') else None
+        if deployment_type == 'local':
+            tools_dir = f"{os.path.expanduser('~')}/tools"
+        else:
+            tools_dir = "/root/tools"
+            
         for bundle in self.config.bundles:
             cmds = [
-                f"export PATH=/root/tools/{bundle.path.name}/bin:$PATH",
-                f"chmod +x /root/tools/{bundle.path.name}/bin/*",
+                f"export PATH={tools_dir}/{bundle.path.name}/bin:$PATH",
+                f"chmod +x {tools_dir}/{bundle.path.name}/bin/*",
             ]
             if (bundle.path / "install.sh").exists():
-                cmds.append(f"cd /root/tools/{bundle.path.name} && source install.sh")
-            cmds.append(f"chmod +x /root/tools/{bundle.path.name}/bin/*")
+                cmds.append(f"cd {tools_dir}/{bundle.path.name} && source install.sh")
+            cmds.append(f"chmod +x {tools_dir}/{bundle.path.name}/bin/*")
             env.communicate(
                 " && ".join(cmds),
                 check="raise",
@@ -316,8 +346,15 @@ class ToolHandler:
 
     def _get_state(self, env: SWEEnv) -> dict[str, str]:
         """Retrieve the state from the environment"""
+        # Determine the target directory based on deployment type
+        deployment_type = getattr(env.deployment._config, 'type', None) if hasattr(env.deployment, '_config') else None
+        if deployment_type == 'local':
+            state_file = f"{os.path.expanduser('~')}/state.json"
+        else:
+            state_file = "/root/state.json"
+            
         try:
-            state_str = env.read_file("/root/state.json")
+            state_str = env.read_file(state_file)
         except FileNotFoundError:
             self.logger.warning("State file not found, returning empty state")
             return {}

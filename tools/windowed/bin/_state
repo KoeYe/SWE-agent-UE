@@ -8,7 +8,9 @@ from registry import registry  # type: ignore
 
 
 def main():
-    state_path = Path("/root/state.json")
+    # Use HOME environment variable for local deployments, fallback to /root for containers
+    home_dir = os.environ.get('HOME', '/root')
+    state_path = Path(f"{home_dir}/state.json")
 
     if state_path.exists():
         state = json.loads(state_path.read_text())
