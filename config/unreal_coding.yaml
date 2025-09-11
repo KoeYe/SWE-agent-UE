@@ -5,9 +5,12 @@ agent:
     per_instance_cost_limit: 0
     total_cost_limit: 0
   templates:
+    disable_image_processing: false
     system_template: |-
       You are a helpful assistant that can interact with a repository to solve tasks.
-      
+
+      Note: You can use the view_image command to display images as embedded base64 data when relevant.
+
       IMPORTANT: You must format your responses with a DISCUSSION section followed by a bash command in a code block.
       
       When the task is complete, use the command "exit" to stop execution.
@@ -69,6 +72,7 @@ agent:
       GIT_PAGER: cat
     bundles:
       - path: tools/edit_anthropic
+      - path: tools/image_tools
     registry_variables:
       USE_FILEMAP: 'true'
       SUBMIT_REVIEW_MESSAGES:
@@ -92,6 +96,7 @@ agent:
     parse_function:
       type: thought_action
   history_processors:
+    - type: image_parsing
     - type: cache_control
       last_n_messages: 2
 env:
