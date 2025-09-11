@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""
+MCP tool caller for Unreal Engine tools via HTTP.
+This script sends HTTP requests to the Unreal MCP server.
+"""
+
+import json
+import sys
+import requests
+import os
+from typing import Dict, Any
+
+# MCP Server URL - can be configured via environment variable
+MCP_SERVER_URL = os.getenv('UNREAL_MCP_URL', 'http://localhost:3000')
+
+def call_mcp_tool(tool_name: str, args: Dict[str, Any] = None) -> None:
+    """Call an MCP tool via HTTP request."""
+    if args is None:
+        args = {}
+    
+    try:
+        # Prepare the request payload
+        payload = {
+            "method": "tools/call",
+            "params": {
+                "name": tool_name,
+                "arguments": args
+            }
+        }
+        
+        # Make HTTP request to MCP server
+        response = requests.post(
+            f"{MCP_SERVER_URL}/mcp",
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            # Print the result to stdout (this becomes the observation for the agent)
+            if "result" in result:
+                tool_result = result["result"]
+                if "content" in tool_result:
+                    for content in tool_result["content"]:
+                        if "text" in content:
+                            print(content["text"])
+                        else:
+                            print(json.dumps(content, indent=2))
+                else:
+                    print(f"✅ MCP tool '{tool_name}' executed successfully")
+                    if tool_result:
+                        print(json.dumps(tool_result, indent=2))
+            else:
+                print(f"✅ MCP tool '{tool_name}' executed successfully (no result)")
+        else:
+            print(f"❌ Error calling MCP tool '{tool_name}': HTTP {response.status_code}")
+            if response.text:
+                print(f"Response: {response.text}")
+                    
+    except requests.exceptions.ConnectionError:
+        print(f"❌ Error: Cannot connect to MCP server at {MCP_SERVER_URL}")
+        print("Make sure the Unreal MCP server is running")
+    except requests.exceptions.Timeout:
+        print(f"❌ Error: Timeout calling MCP tool '{tool_name}'")
+    except Exception as e:
+        print(f"❌ Error calling MCP tool '{tool_name}': {e}")
+
+def main():
+    if len(sys.argv) < 2:
+        print("❌ Usage: mcp_call <tool_name> [<args_json>]")
+        print("Example: mcp_call create_blueprint '{\"name\": \"MyActor\", \"parent_class\": \"Actor\"}'")
+        print(f"MCP Server URL: {MCP_SERVER_URL}")
+        return
+    
+    tool_name = sys.argv[1]
+    
+    # Parse arguments if provided
+    args = {}
+    if len(sys.argv) > 2:
+        try:
+            args = json.loads(sys.argv[2])
+        except json.JSONDecodeError as e:
+            print(f"❌ Error parsing arguments JSON: {e}")
+            print("Make sure to use proper JSON format for arguments")
+            return
+    
+    call_mcp_tool(tool_name, args)
+
+if __name__ == "__main__":
+    main()

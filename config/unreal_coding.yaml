@@ -73,6 +73,7 @@ agent:
     bundles:
       - path: tools/edit_anthropic
       - path: tools/image_tools
+      - path: tools/unreal_mcp
     registry_variables:
       USE_FILEMAP: 'true'
       SUBMIT_REVIEW_MESSAGES:
