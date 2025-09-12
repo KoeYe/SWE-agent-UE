@@ -4,7 +4,7 @@ tools:
     docstring: |
       Call an Unreal Engine MCP tool through HTTP request to the MCP server.
       
-      Server URL: Configure via UNREAL_MCP_URL environment variable (default: http://localhost:8000/sse)
+      Server URL: Configure via UNREAL_MCP_URL environment variable (default: http://localhost:9000/sse)
       
       Available tools include:
       - create_blueprint: Create a new Blueprint class
@@ -13,8 +13,8 @@ tools:
       - And many more...
       
       Examples:
-      mcp_call create_blueprint '{"name": "MyActor", "parent_class": "Actor"}'
-      mcp_call spawn_actor '{"name": "TestActor", "type": "StaticMeshActor"}'
+      mcp_call create_blueprint '{{"name": "MyActor", "parent_class": "Actor"}}'
+      mcp_call spawn_actor '{{"name": "TestActor", "type": "StaticMeshActor"}}'
     arguments:
       - name: tool_name
         type: string
@@ -24,12 +24,12 @@ tools:
         type: string
         description: "JSON string containing the arguments for the tool"
         required: false
-        default: "{}"
+        default: "{{}}"
   
   list_mcp_tools:
     signature: "list_mcp_tools"
     docstring: |
       List all available MCP tools from the Unreal Engine MCP server via HTTP.
       
-      Server URL: Configure via UNREAL_MCP_URL environment variable (default: http://localhost:8000/sse)
+      Server URL: Configure via UNREAL_MCP_URL environment variable (default: http://localhost:9000/sse)
     arguments: []

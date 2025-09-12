@@ -11,7 +11,7 @@ import os
 from typing import Dict, Any
 
 # MCP Server URL - can be configured via environment variable
-MCP_SERVER_URL = os.getenv('UNREAL_MCP_URL', 'http://localhost:3000')
+MCP_SERVER_URL = os.getenv('UNREAL_MCP_URL', 'http://localhost:9000/sse')
 
 def call_mcp_tool(tool_name: str, args: Dict[str, Any] = None) -> None:
     """Call an MCP tool via HTTP request."""
@@ -30,7 +30,7 @@ def call_mcp_tool(tool_name: str, args: Dict[str, Any] = None) -> None:
         
         # Make HTTP request to MCP server
         response = requests.post(
-            f"{MCP_SERVER_URL}/mcp",
+            f"{MCP_SERVER_URL}",
             json=payload,
             headers={"Content-Type": "application/json"},
             timeout=30
