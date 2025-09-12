@@ -93,7 +93,12 @@ def generate_command_docs(
     for cmd in commands + subroutine_types:
         docs += f"{cmd.name}:\n"
         if cmd.docstring is not None:
-            docs += f"  docstring: {cmd.docstring.format(**kwargs)}\n"
+            try:
+                docs += f"  docstring: {cmd.docstring.format(**kwargs)}\n"
+            except KeyError:
+                # If docstring contains unmatched format placeholders (like JSON examples),
+                # use the docstring as-is without formatting
+                docs += f"  docstring: {cmd.docstring}\n"
         if cmd.signature is not None:
             docs += f"  signature: {cmd.signature}\n"
         else:
