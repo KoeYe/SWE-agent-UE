@@ -1,7 +1,7 @@
 tools:
   view_image:
     signature: "view_image <image_file>"
-    docstring: "view an image file"
+    docstring: "View an image file. Automatically optimizes large images to fit within observation limits while preserving quality for vLLM multimodal models."
     arguments:
       - name: image_file
         type: string

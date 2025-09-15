@@ -1,0 +1,8 @@
+#!/bin/bash
+
+main() {
+    # Call the Python script to list MCP tools
+    python3 "$(dirname "$0")/list_mcp_tools.py"
+}
+
+main "$@"

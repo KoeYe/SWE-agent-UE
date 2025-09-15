@@ -1,0 +1,31 @@
+tools:
+  mcp_call:
+    signature: "mcp_call <tool_name> [<args_json>]"
+    docstring: |
+      Call an Unreal Engine MCP tool through SSE transport to the MCP server.
+      
+      Server URL: Configure via UNREAL_MCP_URL environment variable
+      Default: 'http://localhost:9000/sse'
+      
+      Examples:
+        mcp_call create_blueprint '{"name": "MyActor", "parent_class": "Actor"}'
+        mcp_call spawn_actor '{"name": "TestActor", "type": "StaticMeshActor"}'
+        mcp_call api_doc_query '{"query": "convert .obj file into .uassets"}'
+    arguments:
+      - name: tool_name
+        type: string
+        description: "The name of the MCP tool to call"
+        required: true
+      - name: args_json
+        type: string
+        description: "JSON string containing the arguments for the tool (optional)"
+        required: false
+        default: "{}"
+  
+  list_mcp_tools:
+    signature: "list_mcp_tools"
+    docstring: |
+      List all available MCP tools from the Unreal Engine MCP server via SSE.
+      
+      Server URL: Configure via UNREAL_MCP_URL environment var (default: 'http://localhost:9000/sse')
+    arguments: []
