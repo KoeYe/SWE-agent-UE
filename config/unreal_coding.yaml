@@ -1,9 +1,13 @@
 agent:
   model:
     name: openai/Qwen/Qwen2.5-VL-32B-Instruct
-    api_base: http://132.239.95.133:8000/v1
+    # api_base: http://132.239.95.133:8000/v1
+    api_base: http://127.0.0.1:8000/v1
     per_instance_cost_limit: 0
     total_cost_limit: 0
+    # Set context window limits for Qwen model to prevent overflow
+    max_input_tokens: 120000  # Conservative limit for 128k context window
+    max_output_tokens: 4096
   templates:
     disable_image_processing: false
     system_template: |-
