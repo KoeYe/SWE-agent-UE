@@ -162,19 +162,54 @@ class SWEEnv:
             else:
                 # For other deployments, use the traditional path
                 repo_path = f"/{self.repo.repo_name}"
-                
+            
+            # Check if repository has any commits before attempting reset
+            check_commits_cmd = f"cd {repo_path} && git rev-parse --verify HEAD >/dev/null 2>&1"
+            has_commits_result = self.communicate(
+                input=check_commits_cmd,
+                check="ignore",
+                timeout=10,
+            )
+            
+            # Get the exit code by checking if the command succeeded
+            has_commits = self.communicate(
+                input=f"cd {repo_path} && git rev-parse --verify HEAD >/dev/null 2>&1 && echo 'HAS_COMMITS' || echo 'NO_COMMITS'",
+                check="raise",
+                timeout=10,
+            ).strip()
+            
             startup_commands = [
                 f"cd {repo_path}",
                 "export ROOT=$(pwd -P)",
-                *self.repo.get_reset_commands(),
             ]
-            self.communicate(
-                input=" && ".join(startup_commands),
-                check="raise",
-                error_msg="Failed to clean repository",
-                # Sometimes this is slow because it rebuilds some index
-                timeout=120,
-            )
+            
+            if has_commits == 'HAS_COMMITS':
+                # Repository has commits, safe to use normal reset commands
+                startup_commands.extend(self.repo.get_reset_commands())
+            else:
+                # Repository has no commits, skip commands that require HEAD
+                self.logger.warning("Repository has no commits, skipping reset commands that require HEAD")
+                reset_commands = self.repo.get_reset_commands()
+                # Filter out commands that would fail without commits
+                safe_commands = []
+                for cmd in reset_commands:
+                    # Skip commands that reference HEAD or require commits
+                    if 'checkout HEAD' in cmd or 'reset --hard' in cmd:
+                        self.logger.debug("Skipping command that requires commits: %s", cmd)
+                        continue
+                    safe_commands.append(cmd)
+                startup_commands.extend(safe_commands)
+            
+            if len(startup_commands) > 2:  # More than just cd and export
+                self.communicate(
+                    input=" && ".join(startup_commands),
+                    check="raise",
+                    error_msg="Failed to clean repository",
+                    # Sometimes this is slow because it rebuilds some index
+                    timeout=120,
+                )
+            else:
+                self.logger.info("No repository reset commands to execute")
 
     def close(self) -> None:
         """Shutdown SWE-ReX deployment etc."""

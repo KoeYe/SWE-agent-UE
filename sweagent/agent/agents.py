@@ -983,12 +983,59 @@ class DefaultAgent(AbstractAgent):
         self._chook.on_action_started(step=step)
         execution_t0 = time.perf_counter()
         run_action: str = self.tools.guard_multiline_input(step.action).strip()
+        
+        # Special handling for mcp_call commands to bypass bash syntax checking
+        is_mcp_command = run_action.startswith("mcp_call ") or run_action.startswith("list_mcp_tools")
+        
         try:
             step.observation = self._env.communicate(
                 input=run_action,
                 timeout=self.tools.config.execution_timeout,
                 check="raise" if self._always_require_zero_exit_code else "ignore",
             )
+        except BashIncorrectSyntaxError as bash_error:
+            # If it's an MCP command, try to execute it directly without syntax checking
+            if is_mcp_command:
+                self.logger.warning(f"Bypassing bash syntax check for MCP command: {run_action}")
+                try:
+                    # Force execution without syntax checking by using subprocess directly
+                    import subprocess
+                    import shlex
+                    import os
+                    
+                    # Parse the command
+                    parts = shlex.split(run_action)
+                    if parts[0] == "mcp_call":
+                        # Add the mcp_call binary path
+                        mcp_call_path = "/home/koe/tools/unreal_mcp/bin/mcp_call" # TODO:replace this hardcode
+                        if os.path.exists(mcp_call_path):
+                            parts[0] = mcp_call_path
+                        
+                    # Set up environment variables
+                    env_vars = os.environ.copy()
+                    env_vars.update(self.tools.config.env_variables)
+                    
+                    # Execute the command directly
+                    result = subprocess.run(
+                        parts,
+                        capture_output=True,
+                        text=True,
+                        timeout=self.tools.config.execution_timeout,
+                        env=env_vars,
+                        cwd=self._env.communicate("pwd", check="raise").strip()
+                    )
+                    
+                    step.observation = result.stdout
+                    if result.stderr:
+                        step.observation += f"\n{result.stderr}"
+                        
+                except Exception as direct_exec_error:
+                    self.logger.error(f"Direct execution of MCP command failed: {direct_exec_error}")
+                    # Fall back to the original bash syntax error
+                    raise bash_error
+            else:
+                # For non-MCP commands, raise the original bash syntax error
+                raise bash_error
         except CommandTimeoutError:
             self._n_consecutive_timeouts += 1
             if self._n_consecutive_timeouts >= self.tools.config.max_consecutive_execution_timeouts:

@@ -2,15 +2,27 @@
 
 main() {
     if [ $# -eq 0 ]; then
-        echo "Usage: mcp_call <tool_name> [<args_json>]"
+        echo "Usage: mcp_call <tool_name> [<args_json_or_raw_or_pyfile>]"
         return 1
     fi
-    
+
     local tool_name="$1"
-    local args_json="${2:-{}}"
-    
-    # Call the Python script
-    python3 "$(dirname "$0")/mcp_call.py" "$tool_name" "$args_json"
+    shift
+
+    if [ $# -ge 1 ]; then
+        local args="$*"
+
+        # 如果是 .py 文件，读取文件转成 JSON
+        if [[ "$args" == *.py && -f "$args" ]]; then
+            script_content=$(python3 -c "import json,sys; code=open('$args').read(); print(json.dumps({'script': code}))")
+            python3 "$(dirname "$0")/mcp_call.py" "$tool_name" "$script_content"
+        else
+            # 用 printf 保持原始字符，避免 Bash 吃掉反斜杠
+            python3 "$(dirname "$0")/mcp_call.py" "$tool_name" "$(printf '%s' "$args")"
+        fi
+    else
+        python3 "$(dirname "$0")/mcp_call.py" "$tool_name"
+    fi
 }
 
 main "$@"

@@ -116,6 +116,11 @@ class ToolConfig(BaseModel):
     enable_bash_tool: bool = True
     """Whether to enable the bash tool in addition to the other tools specified in bundles."""
 
+    skip_tools_copy: bool = False
+    """If True, skip copying tools for local deployment (development mode). 
+    This assumes tools are already in the correct location and have correct permissions.
+    WARNING: This may break tool dependencies and installation scripts."""
+
     format_error_template: str = None  # type: ignore
     """Defaults to format_error_template in ParseFunction"""
 
@@ -279,13 +284,54 @@ class ToolHandler:
         else:
             tools_dir = "/root/tools"
         
-        # For local deployment, we might want to clean and recreate the tools directory
+        # For local deployment, optimize by checking if tools have changed
         if deployment_type == 'local':
             import shutil
+            import hashlib
             tools_path = Path(tools_dir)
-            if tools_path.exists():
-                shutil.rmtree(tools_path, ignore_errors=True)
             
+            # If skip_tools_copy is enabled, don't copy tools
+            if self.config.skip_tools_copy:
+                self.logger.warning("Skipping tools copy as requested. Make sure tools are properly installed!")
+                return
+            
+            # Create a hash of all bundle paths to detect changes
+            bundle_hash = hashlib.md5(
+                '|'.join(sorted(str(bundle.path.resolve()) for bundle in self.config.bundles)).encode()
+            ).hexdigest()
+            
+            hash_file = tools_path / '.bundle_hash'
+            
+            # Check if we need to update
+            need_update = True
+            if tools_path.exists() and hash_file.exists():
+                try:
+                    existing_hash = hash_file.read_text().strip()
+                    if existing_hash == bundle_hash:
+                        self.logger.info("Tools directory is up to date, skipping copy")
+                        need_update = False
+                except Exception:
+                    pass
+            
+            if need_update:
+                self.logger.info("Updating tools directory")
+                if tools_path.exists():
+                    shutil.rmtree(tools_path, ignore_errors=True)
+                tools_path.mkdir(parents=True, exist_ok=True)
+                
+                # Copy bundles and save hash
+                await asyncio.gather(
+                    *(
+                        env.deployment.runtime.upload(
+                            UploadRequest(source_path=bundle.path.as_posix(), target_path=f"{tools_dir}/{bundle.path.name}")
+                        )
+                        for bundle in self.config.bundles
+                    )
+                )
+                hash_file.write_text(bundle_hash)
+            return
+            
+        # For non-local deployments, always upload
         await asyncio.gather(
             *(
                 env.deployment.runtime.upload(

@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 
+import os
 import asyncio
 from mcp.client.session import ClientSession
 from mcp.client.sse import sse_client
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 
 async def list_tools():
-    server_url = "http://localhost:9000/sse"
+    server_url = os.getenv("UNREAL_MCP_URL", "http://localhost:9000/sse")
+    print(f"Connecting to MCP server: {server_url}")
 
     # 建立 SSE transport
     async with sse_client(

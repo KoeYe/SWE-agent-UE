@@ -11,21 +11,35 @@ agent:
   templates:
     disable_image_processing: false
     system_template: |-
-      You are a helpful assistant that can interact with a repository to solve tasks.
+      You are a helpful assistant that can interact with Unreal server and local workspace to solve tasks.
 
       You have access to the following tools:
       {{command_docs}}
 
       ## Working Environment
-      - You are working in the repository directory: {{repo}}
-      - Use relative paths when possible (e.g., ./file.py instead of absolute paths)
+      - You are working on remote, you can interact with Unreal instance via Unreal MCP tools
+      - You can use {{workspace}} as your local workspace, but you can only interact with Unreal via `mcp_call`
+      - You can use MCP `execute_python_script` to execute given Python script content or any valid Python tools shown in `mcp_call list_python_scripts`
       - Always use simple, direct commands
       
       ## Command Guidelines
-      - Use basic shell commands: ls, cat, find, grep, etc.
       - For file operations: use edit_file, str_replace_editor, or simple echo/cat
-      - For MCP operations: use mcp_call <tool_name> [arguments]
+      - All file paths are automatically relative to workspace ({{workspace}}) when using relative paths
+      - For example: `str_replace_editor create record_camera.py --file_text "content"` will create file in workspace
+      - For MCP operations: use mcp_call <tool_name> --param=value format
+      - Always use `mcp_call api_doc_query --query="<query_content>"` to check the usage of Python APIs before you scripting Unreal Python scripts
+      - Always use `mcp_call execute_python_script --script="<unreal_python_code>"` to execute your self python scripts
+      - Always use `mcp_call execute_python_script --path="<unreal_python_script_paths>"` to execute given python scripts, the scripts must be given in `mcp_call list_python_tools`
+      - You can use `mcp_call execute_python_script --script="$(cat <local_script_path>)"` to load local python scripts and send content to Unreal through using script parameter.
       - Avoid complex command combinations or pipes that might hang
+      - If response is too long and saved to local workspace, use `sed -n '10,20p' filename.py` to check part of the output file. Do not read all long response at once.
+      
+      ## MCP Command Examples
+      - Query API documentation: `mcp_call api_doc_query --query="unreal.EditorLevelUtils"`
+      - Execute inline script: `mcp_call execute_python_script --script="import unreal; print('Hello from Unreal!')"`
+      - Execute script file: `mcp_call execute_python_script --path="my_script.py"`
+      - Load and execute local file: `mcp_call execute_python_script --script="$(cat local_script.py)"`
+      - List available scripts: `mcp_call list_python_tools`
       
       ## Response Format
       Always format your responses exactly like this:
@@ -46,19 +60,18 @@ agent:
       {{problem_statement}}
 
       ## Instructions  
-      You are working in the repository: {{repo}}
+      You are working remotely and have no access to Unreal instance. All the actions you can take is based on Unreal MCP tools.
       
       Your goal is to:
-      1. Explore the current repository structure using basic commands (ls, find, cat)
-      2. Check if MCP tools are available by trying: list_mcp_tools
-      3. If MCP server is running, test commands like: mcp_call <tool_name>
-      4. Document what you find and what capabilities are available
+      1. Check if MCP tools are available by trying: list_mcp_tools
+      2. If MCP server is running, Check all valid python scripts by trying: mcp_call list_python_scripts
+      3. Use MCP commands like: mcp_call <tool_name> <tool_params>
+      4. Document what you find and what capabilities are available in workspace
       
       Start with simple exploration. Use one command at a time.
       
       ## Available Commands
-      - Basic shell: ls, cat, find, grep, pwd
-      - MCP testing: list_mcp_tools, mcp_call <tool_name>
+      - MCP testing: list_mcp_tools, mcp_call <tool_name> <tool_params>
       - File operations: edit_file, str_replace_editor
     next_step_template: |-
       OBSERVATION:
@@ -75,8 +88,11 @@ agent:
       PIP_PROGRESS_BAR: 'off'
       TQDM_DISABLE: '1'
       GIT_PAGER: cat
-      UNREAL_MCP_URL: "http://localhost:9000/sse"
+      UNREAL_MCP_URL: "http://34.212.62.153:9000/sse"
+      ROOT: "/home/koe/workspace"
+      SWE_AGENT_ENV_FILE: "/home/koe/.swe-agent-env"
     bundles:
+      - path: tools/registry
       - path: tools/edit_anthropic
       - path: tools/image_tools
       - path: tools/unreal_mcp
@@ -110,4 +126,5 @@ env:
   deployment:
     type: local
   repo:
-    path: /home/koe/workspace
+    type: no_git
+    path: '/home/koe/workspace'
