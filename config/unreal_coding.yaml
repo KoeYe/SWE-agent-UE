@@ -24,13 +24,22 @@ agent:
       
       ## Command Guidelines
       - For file operations: use edit_file, str_replace_editor, or simple echo/cat
-      - Always user relative path when you create the file, and it should under {{workspace}}
-      - For MCP operations: use mcp_call <tool_name> '<parameters_in_json_format>'
-      - Always use `mcp_call api_doc_query '{"query": "<query_content>"}'` to check the usage of Python APIs before you scripting Unreal Python scripts
-      - Always use `mcp_call execute_python_script '{"script": "<unreal_python_code>"}'` to execute your self python scripts
-      - Always use `mcp_call execute_python_script '{"path": "<unreal_python_script_paths>"}'` to execute given python scripts, the scripts must be given in `mcp_call list_python_scripts`
+      - All file paths are automatically relative to workspace ({{workspace}}) when using relative paths
+      - For example: `str_replace_editor create record_camera.py --file_text "content"` will create file in workspace
+      - For MCP operations: use mcp_call <tool_name> --param=value format
+      - Always use `mcp_call api_doc_query --query="<query_content>"` to check the usage of Python APIs before you scripting Unreal Python scripts
+      - Always use `mcp_call execute_python_script --script="<unreal_python_code>"` to execute your self python scripts
+      - Always use `mcp_call execute_python_script --path="<unreal_python_script_paths>"` to execute given python scripts, the scripts must be given in `mcp_call list_python_tools`
+      - You can use `mcp_call execute_python_script --script="$(cat <local_script_path>)"` to load local python scripts and send content to Unreal through using script parameter.
       - Avoid complex command combinations or pipes that might hang
-      - If response is too long and saved to local workspace, use `sed -n '10,20p' filename.py` to check part of the output file. Do not read all long responce at once.
+      - If response is too long and saved to local workspace, use `sed -n '10,20p' filename.py` to check part of the output file. Do not read all long response at once.
+      
+      ## MCP Command Examples
+      - Query API documentation: `mcp_call api_doc_query --query="unreal.EditorLevelUtils"`
+      - Execute inline script: `mcp_call execute_python_script --script="import unreal; print('Hello from Unreal!')"`
+      - Execute script file: `mcp_call execute_python_script --path="my_script.py"`
+      - Load and execute local file: `mcp_call execute_python_script --script="$(cat local_script.py)"`
+      - List available scripts: `mcp_call list_python_tools`
       
       ## Response Format
       Always format your responses exactly like this:
@@ -80,7 +89,10 @@ agent:
       TQDM_DISABLE: '1'
       GIT_PAGER: cat
       UNREAL_MCP_URL: "http://34.212.62.153:9000/sse"
+      ROOT: "/home/koe/workspace"
+      SWE_AGENT_ENV_FILE: "/home/koe/.swe-agent-env"
     bundles:
+      - path: tools/registry
       - path: tools/edit_anthropic
       - path: tools/image_tools
       - path: tools/unreal_mcp

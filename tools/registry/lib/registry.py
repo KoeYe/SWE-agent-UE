@@ -19,7 +19,12 @@ class EnvRegistry:
     @property
     def env_file(self) -> Path:
         if self._env_file is None:
-            env_file = Path(os.environ.get("SWE_AGENT_ENV_FILE", "/root/.swe-agent-env"))
+            # For local deployment, use home directory instead of /root
+            default_path = "/root/.swe-agent-env"
+            if not os.access("/root", os.W_OK):
+                # If we can't write to /root, use home directory
+                default_path = os.path.expanduser("~/.swe-agent-env")
+            env_file = Path(os.environ.get("SWE_AGENT_ENV_FILE", default_path))
         else:
             env_file = self._env_file
         if not env_file.exists():

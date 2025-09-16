@@ -1007,7 +1007,7 @@ class DefaultAgent(AbstractAgent):
                     parts = shlex.split(run_action)
                     if parts[0] == "mcp_call":
                         # Add the mcp_call binary path
-                        mcp_call_path = "/home/koe/tools/unreal_mcp/bin/mcp_call"
+                        mcp_call_path = "/home/koe/tools/unreal_mcp/bin/mcp_call" # TODO:replace this hardcode
                         if os.path.exists(mcp_call_path):
                             parts[0] = mcp_call_path
                         
