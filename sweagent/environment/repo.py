@@ -95,6 +95,15 @@ class LocalRepoConfig(BaseModel):
     # Let's not make this a model validator, because it leads to cryptic errors.
     # Let's just check during copy instead.
     def check_valid_repo(self) -> Self:
+        """Check if the path is a valid git repository and not dirty."""
+        # first make sure path exists
+        if not Path(self.path).exists():
+            os.mkdir(self.path)
+            logger.info(f"Created directory {self.path} as it did not exist.")
+        if not Path(self.path).is_dir():
+            msg = f"Path {self.path} is not a directory."
+            raise ValueError(msg)
+        # now check if it's a git repo
         try:
             repo = GitRepo(self.path, search_parent_directories=True)
         except InvalidGitRepositoryError as e:
@@ -211,11 +220,62 @@ class GithubRepoConfig(BaseModel):
         return _get_git_reset_commands(self.base_commit)
 
 
-RepoConfig = LocalRepoConfig | GithubRepoConfig | PreExistingRepoConfig
+class NoGitRepoConfig(BaseModel):
+    """Repository configuration that provides access to a directory without any git operations.
+    
+    This is useful when you want the agent to work in a specific directory but don't need
+    git repository management (reset, checkout, etc.). The directory will be created if it doesn't exist.
+    """
+    
+    path: Path
+    """Path to the working directory."""
+    
+    type: Literal["no_git"] = "no_git"
+    """Discriminator for (de)serialization/CLI. Do not change."""
+    
+    model_config = ConfigDict(extra="forbid")
+    
+    @property
+    def repo_name(self) -> str:
+        """Set automatically based on the directory name."""
+        return Path(self.path).resolve().name.replace(" ", "-").replace("'", "")
+    
+    @property
+    def base_commit(self) -> str:
+        """No git operations, so no base commit."""
+        return "HEAD"
+    
+    def copy(self, deployment: AbstractDeployment) -> None:
+        """Create the directory if it doesn't exist."""
+        import asyncio
+        from swerex.runtime.abstract import Command
+        
+        # Create directory if it doesn't exist
+        asyncio.run(
+            deployment.runtime.execute(
+                Command(command=f"mkdir -p {self.path}", shell=True, check=True)
+            )
+        )
+        logger.info(f"Directory {self.path} is ready for no-git operations")
+    
+    def get_reset_commands(self) -> list[str]:
+        """Return commands to reset the directory to a clean state.
+        
+        Full reset: Remove all non-hidden files and recreate clean directory.
+        """
+        return [
+            # Remove all non-hidden files and directories
+            f"find {self.path} -mindepth 1 -not -path '*/.*' -delete 2>/dev/null || true",
+            # Ensure the directory still exists
+            f"mkdir -p {self.path}",
+        ]
+
+
+RepoConfig = LocalRepoConfig | GithubRepoConfig | PreExistingRepoConfig | NoGitRepoConfig
 
 
 def repo_from_simplified_input(
-    *, input: str, base_commit: str = "HEAD", type: Literal["local", "github", "preexisting", "auto"] = "auto"
+    *, input: str, base_commit: str = "HEAD", type: Literal["local", "github", "preexisting", "no_git", "auto"] = "auto"
 ) -> RepoConfig:
     """Get repo config from a simplified input.
 
@@ -230,6 +290,8 @@ def repo_from_simplified_input(
         return GithubRepoConfig(github_url=input, base_commit=base_commit)
     if type == "preexisting":
         return PreExistingRepoConfig(repo_name=input, base_commit=base_commit)
+    if type == "no_git":
+        return NoGitRepoConfig(path=Path(input))
     if type == "auto":
         if input.startswith("https://github.com/"):
             return GithubRepoConfig(github_url=input, base_commit=base_commit)

@@ -1,0 +1,26 @@
+agent:
+  name: "custom_agent"
+  type: "default"
+  templates:
+    max_observation_length: 50_000  # 自定义观察长度限制
+    system_template: |
+      你是一个AI助手，帮助用户完成编程任务。
+    instance_template: |
+      请帮助我解决以下问题：
+      {{problem_statement}}
+    next_step_template: |
+      观察结果:
+      {{observation}}
+    next_step_truncated_observation_template: |
+      观察结果: {{observation[:max_observation_length]}}<输出被截断>
+      <注意>观察结果不应超过 {{max_observation_length}} 个字符。
+      {{elided_chars}} 个字符被省略。请尝试使用不同的命令产生更少的输出，
+      或使用 head/tail/grep/重定向输出到文件。不要使用交互式分页器。</注意>
+    next_step_no_output_template: |
+      你的命令成功运行，但没有产生任何输出。
+  tools:
+    execution_timeout: 120
+  model:
+    model_name: "your_model_name"
+    per_instance_cost_limit: 10.0
+  max_requeries: 3
