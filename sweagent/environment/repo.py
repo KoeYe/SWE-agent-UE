@@ -119,24 +119,15 @@ class LocalRepoConfig(BaseModel):
             return
             
         # For non-local deployments, proceed with the upload
-        try:
-            asyncio.run(
-                deployment.runtime.upload(UploadRequest(source_path=str(self.path), target_path=f"/{self.repo_name}"))
-            )
-            logger.info(f"Successfully uploaded repository to /{self.repo_name}")
-        except Exception as e:
-            logger.warning(f"Failed to upload repository: {e}. Continuing without copy operation.")
-            return
-            
-        try:
-            r = asyncio.run(deployment.runtime.execute(Command(command=f"chown -R root:root /{self.repo_name}", shell=True)))
-            if r.exit_code != 0:
-                logger.warning(f"Failed to change permissions on copied repository (exit code: {r.exit_code}). This might not be critical.")
-                logger.debug(f"chown stderr: {r.stderr}, stdout: {r.stdout}")
-            else:
-                logger.info(f"Successfully changed permissions for /{self.repo_name}")
-        except Exception as e:
-            logger.warning(f"Exception during permission change: {e}. This might not be critical.")
+        asyncio.run(
+            deployment.runtime.upload(UploadRequest(source_path=str(self.path), target_path=f"/{self.repo_name}"))
+        )
+        r = asyncio.run(
+            deployment.runtime.execute(Command(command=f"chown -R root:root /{self.repo_name}", shell=True))
+        )
+        if r.exit_code != 0:
+            msg = f"Failed to change permissions on copied repository (exit code: {r.exit_code}, stdout: {r.stdout}, stderr: {r.stderr})"
+            raise RuntimeError(msg)
 
     def get_reset_commands(self) -> list[str]:
         """Issued after the copy operation or when the environment is reset."""
